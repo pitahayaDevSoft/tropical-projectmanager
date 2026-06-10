@@ -48,11 +48,10 @@ fn fetch_github_stats(remote_url: &str) -> Option<GitHubStats> {
             if parts.len() == 2 {
                 owner_repo = Some(parts[1].trim_end_matches(".git").to_string());
             }
-        } else if remote_url.starts_with("http") {
-            if let Some(path) = remote_url.split("github.com/").nth(1) {
+        } else if remote_url.starts_with("http")
+            && let Some(path) = remote_url.split("github.com/").nth(1) {
                 owner_repo = Some(path.trim_end_matches(".git").to_string());
             }
-        }
     }
 
     if let Some(repo_path) = owner_repo {
@@ -63,8 +62,8 @@ fn fetch_github_stats(remote_url: &str) -> Option<GitHubStats> {
             request = request.header("Authorization", &format!("Bearer {}", token));
         }
 
-        if let Ok(mut response) = request.call() {
-            if let Ok(data) = response.body_mut().read_json::<GitHubRepoResponse>() {
+        if let Ok(mut response) = request.call()
+            && let Ok(data) = response.body_mut().read_json::<GitHubRepoResponse>() {
                 return Some(GitHubStats {
                     stars: data.stargazers_count,
                     forks: data.forks_count,
@@ -72,7 +71,6 @@ fn fetch_github_stats(remote_url: &str) -> Option<GitHubStats> {
                     url: data.html_url,
                 });
             }
-        }
     }
     None
 }
@@ -113,19 +111,6 @@ enum InputMode {
     Normal,
     CreatingProject,
     ConfigGpgKey,
-    ConfirmAction,
-}
-
-enum ActionMode {
-    None,
-    ConfigureGpg,
-    TestRemotes,
-}
-
-struct ConfirmData {
-    action: ActionMode,
-    message: String,
-    projects: Vec<String>,
 }
 
 struct App {
@@ -137,8 +122,6 @@ struct App {
     rx: Option<mpsc::Receiver<Vec<Project>>>,
     tick: u8,
     theme: Theme,
-    action_mode: ActionMode,
-    confirm_data: Option<ConfirmData>,
     global_gpg_key: String,
     status_message: Option<String>,
 }
@@ -154,8 +137,6 @@ impl App {
             rx: None,
             tick: 0,
             theme: Theme::from_brand(brand),
-            action_mode: ActionMode::None,
-            confirm_data: None,
             global_gpg_key: DEFAULT_GPG_KEY.to_string(),
             status_message: None,
         };
@@ -183,8 +164,8 @@ impl App {
                 let path = entry.path();
                 if path.is_dir() {
                     let git_dir = path.join(".git");
-                    if git_dir.exists() {
-                        if let Ok(repo) = Repository::open(path) {
+                    if git_dir.exists()
+                        && let Ok(repo) = Repository::open(path) {
                             let name = path
                                 .file_name()
                                 .unwrap_or_default()
@@ -207,26 +188,19 @@ impl App {
                                         last_commit_msg = Some(msg.to_string());
                                     }
                                 }
-                                if head.is_branch() {
-                                    if let Some(branch_name) = head.shorthand() {
-                                        if let Ok(branch) =
+                                if head.is_branch()
+                                    && let Some(branch_name) = head.shorthand()
+                                        && let Ok(branch) =
                                             repo.find_branch(branch_name, git2::BranchType::Local)
-                                        {
-                                            if let Ok(upstream) = branch.upstream() {
-                                                if let (Some(local_oid), Some(upstream_oid)) =
+                                            && let Ok(upstream) = branch.upstream()
+                                                && let (Some(local_oid), Some(upstream_oid)) =
                                                     (branch.get().target(), upstream.get().target())
-                                                {
-                                                    if let Ok((a, b)) = repo
+                                                    && let Ok((a, b)) = repo
                                                         .graph_ahead_behind(local_oid, upstream_oid)
                                                     {
                                                         ahead = a;
                                                         behind = b;
                                                     }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
                             }
 
                             let mut untracked = 0;
@@ -280,14 +254,13 @@ impl App {
 
                             let mut github_stats = None;
                             let mut remote_status = None;
-                            if let Ok(mut remote) = repo.find_remote("origin") {
-                                if let Some(url) = remote.url() {
+                            if let Ok(mut remote) = repo.find_remote("origin")
+                                && let Some(url) = remote.url() {
                                     github_stats = fetch_github_stats(url);
-                                    if let Ok(_) = remote.connect(git2::Direction::Fetch) {
+                                    if remote.connect(git2::Direction::Fetch).is_ok() {
                                         remote_status = Some(true);
                                     }
                                 }
-                            }
 
                             let gpg_status = check_gpg_status(&git_dir, &gpg_key);
 
@@ -310,11 +283,10 @@ impl App {
                                 remote_status,
                             });
                         }
-                    }
                 }
             }
 
-            found_projects.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+            found_projects.sort_by_key(|a| a.name.to_lowercase());
             let _ = tx.send(found_projects);
         });
     }
@@ -370,8 +342,8 @@ impl App {
 
             for entry in walker.filter_map(Result::ok) {
                 let path = entry.path();
-                if path.is_dir() && path.join(".git").exists() {
-                    if let Ok(repo) = Repository::open(path) {
+                if path.is_dir() && path.join(".git").exists()
+                    && let Ok(repo) = Repository::open(path) {
                         let _ = repo.config().and_then(|mut cfg| {
                             cfg.set_i32("commit.gpgsign", 1)?;
                             cfg.set_str("user.signingkey", &key_owned)?;
@@ -380,7 +352,6 @@ impl App {
                             Ok(())
                         });
                     }
-                }
             }
         });
 
@@ -394,7 +365,7 @@ impl App {
     }
 }
 
-fn check_gpg_status(git_dir: &PathBuf, expected_key: &str) -> GpgStatus {
+fn check_gpg_status(git_dir: &std::path::Path, expected_key: &str) -> GpgStatus {
     let config_path = git_dir.join("config");
     if !config_path.exists() {
         return GpgStatus {
@@ -487,8 +458,8 @@ where
     B::Error: 'static,
 {
     loop {
-        if let Some(rx) = &app.rx {
-            if let Ok(projects) = rx.try_recv() {
+        if let Some(rx) = &app.rx
+            && let Ok(projects) = rx.try_recv() {
                 app.projects = projects;
                 app.is_loading = false;
                 app.rx = None;
@@ -496,7 +467,6 @@ where
                     app.list_state.select(Some(0));
                 }
             }
-        }
 
         terminal.draw(|f| ui(f, app))?;
 
@@ -530,8 +500,8 @@ where
                                         let new_path = PathBuf::from(MASTER_DIR).join(&name);
                                         let template =
                                             PathBuf::from("./jules_dev_standard/template");
-                                        if !new_path.exists() && template.exists() {
-                                            if std::fs::create_dir_all(&new_path).is_ok() {
+                                        if !new_path.exists() && template.exists()
+                                            && std::fs::create_dir_all(&new_path).is_ok() {
                                                 let mut opts = fs_extra::dir::CopyOptions::new();
                                                 opts.content_only = true;
                                                 let _ = fs_extra::dir::copy(
@@ -539,7 +509,6 @@ where
                                                 );
                                                 let _ = Repository::init(&new_path);
                                             }
-                                        }
                                         app.scan_projects();
                                     }
                                     app.input_mode = InputMode::Normal;
@@ -565,29 +534,6 @@ where
                                     app.input_buffer.pop();
                                 }
                                 KeyCode::Esc => app.input_mode = InputMode::Normal,
-                                _ => {}
-                            },
-                            InputMode::ConfirmAction => match key.code {
-                                KeyCode::Char('y') | KeyCode::Enter => {
-                                    if let Some(confirm) = &app.confirm_data {
-                                        let gpg_key = app.global_gpg_key.clone();
-                                        match confirm.action {
-                                            ActionMode::ConfigureGpg => {
-                                                app.configure_gpg_all(&gpg_key);
-                                            }
-                                            ActionMode::TestRemotes => {
-                                                app.test_remotes();
-                                            }
-                                            ActionMode::None => {}
-                                        }
-                                    }
-                                    app.confirm_data = None;
-                                    app.input_mode = InputMode::Normal;
-                                }
-                                KeyCode::Char('n') | KeyCode::Esc => {
-                                    app.confirm_data = None;
-                                    app.input_mode = InputMode::Normal;
-                                }
                                 _ => {}
                             },
                         }

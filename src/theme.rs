@@ -11,6 +11,8 @@
 //  Jules Martins / Tropical Media Group
 // ════════════════════════════════════════════════════════════
 
+#![allow(dead_code)]
+
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
@@ -18,20 +20,15 @@ use ratatui::{
 
 // ── BRAND PRESETS ────────────────────────────────────────────
 // Maps to @layer brand in TropicalUI CSS
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum Brand {
+    #[default]
     Tropical, // #4285f4 — default master
     Mango,    // #FFB347
     Ocean,    // #4FA4D8
     Pitahaya, // #FF2400
     Papaya,   // #FF8A65
     Balandra, // #a855f7 (Legacy/Special)
-}
-
-impl Default for Brand {
-    fn default() -> Self {
-        Brand::Tropical
-    }
 }
 
 // ── MOTION CONSTANTS ─────────────────────────────────────────
@@ -539,7 +536,8 @@ impl Theme {
     }
 
     pub fn cursor_span<'a>(&self, tick_count: u8) -> Span<'a> {
-        let visible = (tick_count / DUR_BASE_TICKS) % 2 == 0;
+        // Use is_multiple_of to express the even/odd visibility check
+        let visible = (tick_count / DUR_BASE_TICKS).is_multiple_of(2u8);
         if visible {
             Span::styled(CURSOR_BLOCK, Style::default().fg(self.primary))
         } else {
